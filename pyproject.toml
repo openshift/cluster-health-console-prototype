@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "cluster-health-console-prototype"
+version = "0.0.1"
+description = ""
+authors = ["Ivan Necas <inecas@redhat.com>"]
+license = "Apache"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+plotly = "^5.22.0"
+dash = "^2.17.0"
+pandas = "^2.2.2"
+obsinthe = "^0.0.3"
+mmh3 = "^4.1.0"
+
+[tool.poetry.dev-dependencies]
+black = "*"
+flake8 = "*"
+isort = "*"
+pre-commit = "*"
+
+[tool.isort]
+profile = "black"
+force_single_line = true
+atomic = true
+order_by_type = false
+case_sensitive = false
+lines_after_imports = 2
+line_length = 88
+
+[tool.black]
+line-length = 88
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,27 @@
+
+input[type="checkbox"] {
+    margin: 0.5rem;
+}
+
+.co-page-backdrop {
+    background-color: #ffffff;
+}
+
+/* Hack to workaround some weird margin in the label. */
+.pf-v5-c-label__text {
+    margin-bottom: 0.2rem;
+}
+
+#time-window-size {
+    width: 8em;
+}
+
+.DateInput_input {
+    padding: 3px;
+    font-size: 16px;
+}
+
+.alerts-loading {
+    position: absolute;
+    top: 5px;
+}
