@@ -497,38 +497,51 @@ app.layout = page_layout(
                         ),
                     ],
                 ),
-                dcc.Loading(
-                    delay_show=500,  # wait a bit to avoid flickering
+                html.Section(
+                    className="pf-v5-c-page__main-section pf-m-fill",
                     children=div(
-                        "pf-v5-c-card",
+                        "pf-v5-l-stack pf-m-gutter",
                         [
-                            dcc.Graph(
-                                id="incidents-timeline-graph",
-                                config=GRAPH_CONFIG,
+                            dcc.Loading(
+                                delay_show=500,  # wait a bit to avoid flickering
+                                children=div(
+                                    "pf-v5-c-card",
+                                    [
+                                        dcc.Graph(
+                                            id="incidents-timeline-graph",
+                                            config=GRAPH_CONFIG,
+                                        ),
+                                    ],
+                                ),
                             ),
+                            dcc.Input(id="incidents-selected", type="hidden"),
+                            dcc.Loading(
+                                className="alerts-loading",
+                                children=[
+                                    div(
+                                        "pf-v5-c-card",
+                                        dcc.Graph(
+                                            id="alerts-timeline-graph",
+                                            config=GRAPH_CONFIG,
+                                        ),
+                                    ),
+                                ],
+                            ),
+                            dcc.Input(id="dummy", type="hidden"),
                         ],
                     ),
                 ),
-                dcc.Input(id="incidents-selected", type="hidden"),
                 dcc.Loading(
                     className="alerts-loading",
                     children=[
-                        div(
-                            "pf-v5-c-card",
-                            dcc.Graph(
-                                id="alerts-timeline-graph",
-                                config=GRAPH_CONFIG,
-                            ),
-                        ),
                         div(
                             "alerts pf-v5-c-card",
                             div("pf-v5-c-card__body", [], id="alerts"),
                         ),
                     ],
                 ),
-                dcc.Input(id="dummy", type="hidden"),
             ],
-        ),
+        )
     ]
 )
 
@@ -554,7 +567,7 @@ def format_severity(severity):
 
 
 # fmt: off
-def build_expandable_table(columns, data, expand_all=False):
+def build_expandable_table(columns, data, expand_all=False, compact=False):
     content = [el(html.Thead, "pf-v5-c-table__thead", [
         el(html.Tr, "pf-v5-c-table__tr pf-m-row", [
             el(html.Th, "pf-v5-c-table__th", column) for column in columns
@@ -596,7 +609,10 @@ def build_expandable_table(columns, data, expand_all=False):
         content.append(el(html.Tbody, f"pf-v5-c-table__tbody {expanded_class}",
                           group_content, role="rowgroup"))
 
-    return el(html.Table, "pf-v5-c-table pf-m-grid-md", content)
+    table_class = "pf-v5-c-table pf-m-grid-md"
+    if compact:
+        table_class += " pf-m-compact"
+    return el(html.Table, table_class, content)
 # fmt: on
 
 
@@ -819,6 +835,7 @@ def build_components_alerts_table(alerts):
     return build_expandable_table(
         ["", "Component", "Severity", "State"],
         components_rows,
+        compact=True,
     )
 
 
