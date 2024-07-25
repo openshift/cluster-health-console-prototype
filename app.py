@@ -298,16 +298,11 @@ def query_alerts(start, end, query=None):
     if ds:
         df = ds.to_intervals_ds(res).df
 
-        # dedup flapping alerts into a single record with min start and max end.
-        df["extra_str"] = df["extra"].map(lambda d: json.dumps(d, sort_keys=True))
         if "namespace" not in df.columns:
             df["namespace"] = None
-        df = df.groupby(
-            ["alertname", "namespace", "severity", "extra_str"],
-            as_index=False,
-            dropna=False,
-        ).agg(start=("start", "min"), end=("end", "max"), extra=("extra", "first"))
-        df.drop("extra_str", axis=1, inplace=True)
+
+        df = df[["alertname", "namespace", "severity", "start", "end", "extra"]]
+
         return df
 
 
@@ -420,6 +415,49 @@ def extract_component_health(ds):
     df = df.explode("values", ignore_index=True)
     df["health_severity"] = df["values"].map(lambda a: HEALTH_VALUE_SEVERITY[a[1]])
     return prom.data.RangeDataset(df)
+
+
+def add_alerts_ranking(start, end, alerts):
+    """Add ranking columns to alerts for sorting."""
+    components_ranks = load_components_ranking(start, end)
+    alerts = alerts.merge(
+        components_ranks[["layer", "component", "rank_component"]],
+        on=["layer", "component"],
+        how="left",
+    )
+    alerts["rank_component"].fillna(1000, inplace=True)
+
+    alerts["rank_state"] = alerts["alertstate"].map({"firing": 0}).fillna(1000)
+    alerts["rank_severity"] = alerts["severity"].map(SEVERITY_RANK).fillna(1)
+
+    return alerts
+
+
+def aggregate_alerts(alerts):
+    """Merge all intervals of the same alert into a single record.
+
+    While in alerts timeline graph, we want to see the flapping intervals,
+    in the table, we just want to see when the alert started and when it ended."""
+
+    # We need extra_str as a string so that we can group by it.
+    alerts = alerts.assign(
+        extra_str=alerts["extra"].map(lambda d: json.dumps(d, sort_keys=True))
+    )
+    # Dedup flapping alerts into a single record with min start and max end.
+    return alerts.groupby(
+        ["alertname", "namespace", "severity", "extra_str", "component", "layer"],
+        as_index=False,
+        dropna=False,
+    ).agg(
+        start=("start", "min"),
+        end=("end", "max"),
+        end_default=("end_default", "max"),
+        rank_state=("rank_state", "min"),
+        rank_severity=("rank_severity", "min"),
+        rank_component=("rank_component", "min"),
+        alertstate=("alertstate", "first"),
+        extra=("extra", "first"),
+    )
 
 
 #########################
@@ -693,22 +731,6 @@ def get_start_end(window_size, window_end):
         start = end - timedelta(days=7)
 
     return start, end
-
-
-def add_alerts_ranking(start, end, alerts):
-    """Add ranking columns to alerts for sorting."""
-    components_ranks = load_components_ranking(start, end)
-    alerts = alerts.merge(
-        components_ranks[["layer", "component", "rank_component"]],
-        on=["layer", "component"],
-        how="left",
-    )
-    alerts["rank_component"].fillna(1000, inplace=True)
-
-    alerts["rank_state"] = alerts["alertstate"].map({"firing": 0}).fillna(1000)
-    alerts["rank_severity"] = alerts["severity"].map(SEVERITY_RANK).fillna(1)
-
-    return alerts
 
 
 def no_data_fig(title):
@@ -1026,15 +1048,15 @@ def update_alerts_table(
             group_ids = list(incidents_df["group_id"].dropna().unique())
 
     alerts = load_alerts(start, end, group_ids=group_ids)
+    alerts = add_alerts_ranking(start, end, alerts)
+    alerts_aggregated = aggregate_alerts(alerts)
 
     if alerts is None:
         return no_data_fig("Alerts Timeline"), "No data"
 
-    alerts = add_alerts_ranking(start, end, alerts)
-
     return (
         alerts_timeline_figure(start, end, alerts),
-        build_components_alerts_table(alerts),
+        build_components_alerts_table(alerts_aggregated),
     )
 
 
